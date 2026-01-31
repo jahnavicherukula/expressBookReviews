@@ -8,36 +8,31 @@ const app = express();
 
 app.use(express.json());
 
-// Session middleware for customer routes
-app.use("/customer", session({
-  secret: "fingerprint_customer",
-  resave: true,
-  saveUninitialized: true
-}));
+app.use("/customer",session({secret:"fingerprint_customer",resave: true, saveUninitialized: true}))
 
-// 🔐 Authentication middleware for protected routes
-app.use("/customer/auth/*", function auth(req, res, next) {
+app.use("/customer/auth/*", function auth(req,res,next){
+    
+  // Check if user is logged in and has valid access token
+  if (req.session.authorization) {
+    let token = req.session.authorization['accessToken'];
 
-  if (!req.session.authorization) {
+    // Verify JWT token
+    jwt.verify(token, "access", (err, user) => {
+        if (!err) {
+            req.user = user;
+            next(); // Proceed to the next middleware
+        } else {
+            return res.status(403).json({ message: "User not authenticated" });
+        }
+    });
+} else {
     return res.status(403).json({ message: "User not logged in" });
-  }
-
-  const token = req.session.authorization.accessToken;
-
-  jwt.verify(token, "fingerprint_customer", (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ message: "Invalid or expired token" });
-    }
-
-    req.user = decoded; // make user info available in routes
-    next();
-  });
-
+}
 });
-
-const PORT = 5000;
+ 
+const PORT =5000;
 
 app.use("/customer", customer_routes);
 app.use("/", genl_routes);
 
-app.listen(PORT, () => console.log("Server is running"));
+app.listen(PORT,()=>console.log("Server is running"));
